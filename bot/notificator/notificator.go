@@ -109,7 +109,7 @@ func (g *Groups) AddNewTicker(id string) error {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
 
-	log.Printf("new event added for: %s", id)
+	log.Printf("new ticker added for: %s", id)
 
 	for _, exist := range g.ID {
 		if exist == id {
@@ -211,6 +211,54 @@ func (g *Groups) handleEvent(chatID string) {
 
 	if group.StonFi != "" {
 		pools = append(pools, group.StonFi)
+	}
+
+	if g.comps.IsEnded(chatID) {
+
+		for i, exist := range g.ID {
+			if exist == chatID {
+				g.ID = append(g.ID[:i], g.ID[i+1:]...)
+			}
+		}
+
+		err := g.events.RemoveInstance(chatID)
+		if err != nil {
+			log.Printf("no se pudo eliminar los eventos para el grupo %s", chatID)
+
+		}
+
+		err = g.comps.RemoveTimestampActive(chatID)
+		if err != nil {
+			log.Printf("no se pudo eliminar el timestamp para el grupo %s", chatID)
+
+		}
+
+		err = g.Groups.UpdateCompStatus(chatID, false)
+		if err != nil {
+			log.Printf("no se pudo actualizar el comp status para el grupo %s", chatID)
+			/* continue */
+		}
+
+		_, err = database.RemoveCompData(g.DB, chatID)
+		if err != nil {
+			log.Printf("no se pudo remover la competencia para el grupo %s", chatID)
+			/* continue */
+		}
+
+		_, err = database.RemoveEndTimeData(g.DB, chatID)
+		if err != nil {
+			log.Printf("no se pudo remover el tiempo para el grupo %s", chatID)
+			/* continue */
+		}
+
+		_, err = database.RemoveSaleData(g.DB, chatID)
+		if err != nil {
+			log.Printf("no se pudo remover la venta para el grupo %s", chatID)
+			/* continue */
+		}
+
+		g.send(int64(chatIDInt), compEnded)
+		return
 	}
 
 	for _, pool := range pools {
@@ -327,53 +375,6 @@ func (g *Groups) handleEvent(chatID string) {
 			keyboardMarkup := keyboardMarkup(g.promotions.ButtonName, g.promotions.ButtonLink)
 			g.newNotification(msg, int64(chatIDInt), g.promotions.Media, keyboardMarkup)
 		}
-
-		if g.comps.IsEnded(chatID) {
-			if _, exist := g.Ticker[chatID]; !exist {
-				log.Printf("el ticker para el grupo %s, no existe", chatID)
-				return
-			}
-
-			_, err := database.RemoveCompData(g.DB, chatID)
-			if err != nil {
-				log.Printf("no se pudo remover la competencia para el grupo %s", chatID)
-				return
-			}
-
-			_, err = database.RemoveEndTimeData(g.DB, chatID)
-			if err != nil {
-				log.Printf("no se pudo remover el tiempo para el grupo %s", chatID)
-				return
-			}
-
-			_, err = database.RemoveSaleData(g.DB, chatID)
-			if err != nil {
-				log.Printf("no se pudo remover la venta para el grupo %s", chatID)
-				return
-			}
-
-			delete(g.Ticker, chatID)
-
-			err = g.events.RemoveInstance(chatID)
-			if err != nil {
-				log.Printf("no se pudo eliminar los eventos para el grupo %s", chatID)
-				return
-			}
-
-			err = g.comps.RemoveTimestampActive(chatID)
-			if err != nil {
-				log.Printf("no se pudo eliminar el timestamp para el grupo %s", chatID)
-				return
-			}
-
-			err = g.Groups.UpdateCompStatus(chatID, false)
-			if err != nil {
-				log.Printf("no se pudo eliminar el timestamp para el grupo %s", chatID)
-				return
-			}
-
-			g.send(int64(chatIDInt), compEnded)
-		}
 	}
 
 }
@@ -405,7 +406,12 @@ func (g *Groups) generateMessage(tx *core.Purchase, id string, compList []*core.
 
 	spent := fmt.Sprintf("\n\n💰Spent: %d *TON*\n", tx.Ton)
 	got := fmt.Sprintf("🧳Bought: %s *%s*\n", formatWithCommas(tx.Token.Int64()), tx.JettonSymbol)
-	compspot := fmt.Sprintf("📊Competition Spot: %d\n", buyerIndex)
+	compspot := fmt.Sprintf("📊Competition Spot: %d\n", buyerIndex+1)
+
+	if buyerIndex == 0 {
+		compspot = fmt.Sprintf("📊Competition Spot: %s\n", "New competitor")
+	}
+
 	walletEnc := url.QueryEscape(tx.Buyer)
 	lenWallet := len(tx.Buyer)
 	wallet := fmt.Sprintf("💎Wallet: [%s...%s](https://tonviewer.com/%s/)\n", tx.Buyer[:6], tx.Buyer[lenWallet-6:], walletEnc)

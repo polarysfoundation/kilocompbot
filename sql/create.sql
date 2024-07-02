@@ -36,6 +36,6 @@ CREATE TABLE promo(
     media TEXT NOT NULL
 );
 CREATE TABLE end_time(
-    id TEXT REFERENCES groups(id),
+    id TEXT UNIQUE PRIMARY KEY REFERENCES groups(id),
     timestamp NUMERIC NOT NULL
 );

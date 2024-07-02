@@ -15,6 +15,16 @@ func WriteGroups(db *sql.DB, id string, compActive bool, jettonAddress string, d
 	return nil
 }
 
+func WriteEndTime(db *sql.DB, id string, endTime int64) error {
+	sqlStatement := "INSERT INTO end_time (id, timestamp) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET timestamp = EXCLUDED.timestamp"
+	_, err := db.Exec(sqlStatement, id, endTime)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func WritePurchases(db *sql.DB, id string, jettonAddress string, jettonName string, jettonSymbol string, jettonDecimals *big.Int, buyer string, ton *big.Int, token *big.Int) error {
 	sqlStatement := "INSERT INTO order_buy (group_id, jetton_address, jetton_name, jetton_symbol, jetton_decimal, buyer_address, ton_amount, token_amount) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
 	_, err := db.Exec(sqlStatement, id, jettonAddress, jettonName, jettonSymbol, jettonDecimals.Int64(), buyer, ton.Int64(), token.Int64())

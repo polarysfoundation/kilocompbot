@@ -18,17 +18,19 @@ import (
 type Backup struct {
 	Group      *groups.Groups
 	Comps      *core.Competition
+	Temps      *groups.ActiveTemps
 	Promo      *promotions.Params
 	DB         *sql.DB
 	Lastupdate int64
 }
 
-func InitBackup(db *sql.DB, groups *groups.Groups, comps *core.Competition, promo *promotions.Params) *Backup {
+func InitBackup(db *sql.DB, groups *groups.Groups, comps *core.Competition, promo *promotions.Params, temps *groups.ActiveTemps) *Backup {
 	lastUpdate := time.Now().Unix()
 
 	return &Backup{
 		Group:      groups,
 		Comps:      comps,
+		Temps:      temps,
 		Promo:      promo,
 		DB:         db,
 		Lastupdate: lastUpdate,
@@ -36,7 +38,7 @@ func InitBackup(db *sql.DB, groups *groups.Groups, comps *core.Competition, prom
 }
 
 func (b *Backup) HandleBackup() {
-	ticker := time.NewTicker(20 * time.Minute)
+	ticker := time.NewTicker(5 * time.Minute)
 
 	go func() {
 		for {
@@ -58,6 +60,7 @@ func (b *Backup) HandleSync() {
 	b.storePromo()
 	b.storePurchase()
 	b.storeSale()
+	b.storeEndTime()
 }
 
 func (b *Backup) LoadData(tickers *notificator.Groups) {
@@ -66,6 +69,7 @@ func (b *Backup) LoadData(tickers *notificator.Groups) {
 	b.loadPurchase()
 	b.loadSales()
 	b.loadPromo()
+	b.loadTimestamp()
 }
 
 func (b *Backup) loadPromo() {
@@ -79,7 +83,6 @@ func (b *Backup) loadPromo() {
 	b.Promo.UpdateButtonLink(promo.ButtonLink)
 	b.Promo.UpdateButtonName(promo.ButtonName)
 	b.Promo.Media = promo.Media
-	b.loadTimestamp()
 }
 
 func (b *Backup) loadTimestamp() {
@@ -108,6 +111,7 @@ func (b *Backup) loadGroups(tickers *notificator.Groups) {
 
 	for _, group := range groups {
 		b.Group.ActiveGroups[group.ID] = group
+		b.Temps.AddTemp(group.ID)
 		if group.CompActive {
 			err := tickers.AddNewTicker(group.ID)
 			if err != nil {
@@ -200,6 +204,19 @@ func (b *Backup) storePurchase() {
 			}
 			break
 		}
+	}
+}
+
+func (b *Backup) storeEndTime() {
+	for id, timestamp := range b.Comps.Timestamp {
+		err := database.WriteEndTime(b.DB, id, timestamp)
+		if err != nil {
+			log.Printf("error guardando el endtime para el grupo %s", id)
+			log.Println("error:", err)
+			return
+		}
+		break
+
 	}
 }
 

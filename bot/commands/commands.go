@@ -49,6 +49,7 @@ const (
 	addNewEmoji             = "Cool, send the new emoji. "
 	emojiAdded              = "The emoji has been changed."
 	competitionEnded        = "The competition is over."
+	emptyList               = "The list of competitors is empty. "
 
 	purchaseRemoved = "The purchase has been removed"
 
@@ -336,8 +337,7 @@ func (c *Commands) handleCommands(update tgbotapi.Update) {
 
 				err = c.events.RemoveTicker(chatIDStr)
 				if err != nil {
-					log.Printf("no se pudo remover el ticker para el grupo %s", chatIDStr)
-					return
+					log.Printf("no se pudo remover el ticker para el grupo %s, %v", chatIDStr, err)
 				}
 
 				err = c.Comps.RemoveBlacklistActive(chatIDStr)
@@ -352,7 +352,7 @@ func (c *Commands) handleCommands(update tgbotapi.Update) {
 
 				err = c.Groups.UpdateCompStatus(chatIDStr, false)
 				if err != nil {
-					log.Printf("no se pudo remover el timestamp para el grupo %s", chatIDStr)
+					log.Printf("no se pudo remover el status para el grupo %s", chatIDStr)
 				}
 
 				c.send(chatID, competitionEnded)
@@ -399,10 +399,15 @@ func (c *Commands) handleCommands(update tgbotapi.Update) {
 				order, err := c.Comps.GetComp(chatIDStr)
 				if err != nil {
 					log.Printf("no se pudo obtener las ordenes de compra para el grupo %s", chatIDStr)
-					return
 				}
 
 				compList := order.GetCompList()
+
+				if len(compList) == 0 {
+					c.send(chatID, emptyList)
+					return
+				}
+
 				msg := listMessage(compList)
 				c.send(chatID, msg)
 				return
@@ -613,7 +618,7 @@ func (c *Commands) handleNoCommands(update tgbotapi.Update) {
 			if exist {
 				var timestamp int64
 				switch param {
-				case "24", "48", "72":
+				case "24", "48", "72", "5":
 					switch param {
 					case "24":
 						timestamp = time.Now().Unix() + int64(24*60*60)
@@ -621,6 +626,8 @@ func (c *Commands) handleNoCommands(update tgbotapi.Update) {
 						timestamp = time.Now().Unix() + int64(24*60*60*2)
 					case "72":
 						timestamp = time.Now().Unix() + int64(24*60*60*3)
+					case "5":
+						timestamp = time.Now().Unix() + int64(5*60)
 					}
 				default:
 					log.Printf("parametro invalido para comenzar la competencia")

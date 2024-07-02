@@ -47,7 +47,7 @@ func (b *Bot) Run() {
 	promo := promotions.InitParams()
 	events := notificator.InitEvents()
 
-	backup := backups.InitBackup(b.DB, groupsMap, comps, promo)
+	backup := backups.InitBackup(b.DB, groupsMap, comps, promo, temps)
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
