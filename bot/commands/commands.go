@@ -417,7 +417,7 @@ func (c *Commands) handleCommands(update tgbotapi.Update) {
 			}
 		case admin:
 			return
-		case "/ca":
+		case "ca":
 			return
 		case removebuyer:
 			if !chat.IsGroup() && !chat.IsSuperGroup() {
